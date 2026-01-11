@@ -1,0 +1,104 @@
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# Flutter/Dart
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.pub/
+**/build/
+**/.last_build_id
+**/.flutter-plugins-dependencies
+**/.packages
+**/pubspec.lock
+
+# Android
+**/android/.gradle/
+**/android/local.properties
+**/android/**/GeneratedPluginRegistrant.java
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
+
+# iOS
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/ephemeral/
+**/ios/.generated/
+**/ios/Flutter/App.framework
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Flutter/Flutter-Debug.xcconfig
+**/ios/Flutter/Flutter-Release.xcconfig
+**/ios/Flutter/Flutter-Profile.xcconfig
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
+
+# Node.js (for functions/backend)
+**/node_modules/
+**/npm-debug.log
+**/yarn-error.log
+**/package-lock.json
+**/yarn.lock
+
+# Firebase
+**/.firebase/
+**/.firebaserc
+**/firebase-debug.log
+**/firestore-debug.log
+**/ui-debug.log
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+**/*.so
+**/.Python
+**/venv/
+**/env/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Build artifacts
+dist/
+target/
+*.o
+*.a
+*.lib
+*.exe
+*.dll
+*.so
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+

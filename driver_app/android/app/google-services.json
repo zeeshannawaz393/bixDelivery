@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "877136029180",
+    "project_id": "couriermvp",
+    "storage_bucket": "couriermvp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:877136029180:android:dd302caccc719886c73e79",
+        "android_client_info": {
+          "package_name": "com.sigitechnologies.courierapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyChE_o_M8LW9T7xTEcvHs21iFlJzvhSFlU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:877136029180:android:36f42a219f1fb5d5c73e79",
+        "android_client_info": {
+          "package_name": "com.sigitechnologies.courierdriver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyChE_o_M8LW9T7xTEcvHs21iFlJzvhSFlU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

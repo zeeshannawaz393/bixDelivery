@@ -1,0 +1,22 @@
+{
+  "name": "courier-mvp-notification-service",
+  "version": "1.0.0",
+  "description": "Firebase Cloud Messaging notification service for Courier MVP",
+  "main": "notification_service.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "firebase",
+    "fcm",
+    "notifications"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "express": "^4.18.2",
+    "firebase-functions": "^4.5.0"
+  }
+}
+

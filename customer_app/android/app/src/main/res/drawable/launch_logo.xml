@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Custom drawable for logo with size constraints matching iOS (85% width, 40dp margins) -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:left="40dp"
+        android:right="40dp"
+        android:top="0dp"
+        android:bottom="0dp">
+        <bitmap
+            android:gravity="center"
+            android:src="@mipmap/launch_image" />
+    </item>
+</layer-list>
+
