@@ -13,6 +13,116 @@ import '../../utils/constants.dart';
 class JobsTab extends StatelessWidget {
   const JobsTab({super.key});
 
+  Future<bool> _showNotAvailableSheet(BuildContext context) async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final mq = MediaQuery.of(context);
+        final bottomInset = mq.viewPadding.bottom + mq.viewInsets.bottom;
+
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + bottomInset),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.10),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.cancel, color: Colors.red, size: 28),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Not available?',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Confirming will cancel this order for the customer.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, height: 1.4, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 48,
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.textPrimary,
+                              side: BorderSide(color: Colors.grey.withValues(alpha: 0.35)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: const Text('Go back', style: TextStyle(fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SizedBox(
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: const Text('Cancel order', style: TextStyle(fontWeight: FontWeight.w700)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    return result == true;
+  }
+
   Widget _buildSliderToggle({
     required bool value,
     required Function(bool) onChanged,
@@ -590,9 +700,75 @@ class JobsTab extends StatelessWidget {
                                       final orderId = order.orderId ?? '';
                                       final isThisOrderAccepting = orderId.isNotEmpty && 
                                           _orderController.acceptingOrderIds.contains(orderId);
-                                      
-                                      return SizedBox(
-                                        width: double.infinity,
+                                      final isThisOrderDeclining = orderId.isNotEmpty &&
+                                          _orderController.decliningOrderIds.contains(orderId);
+
+                                      return Row(
+                                        children: [
+                                          // Not Available Button
+                                          Expanded(
+                                            child: SizedBox(
+                                              height: 44,
+                                              child: OutlinedButton(
+                                                onPressed: (isThisOrderAccepting || isThisOrderDeclining) ? null : () async {
+                                                  if (order.orderId != null && order.orderId!.isNotEmpty) {
+                                                    final shouldCancel = await _showNotAvailableSheet(context);
+                                                    if (shouldCancel != true) return;
+
+                                                    final success = await _orderController.declineOrder(order.orderId!);
+                                                    if (success && context.mounted) {
+                                                      CustomToast.info(
+                                                        context,
+                                                        'Order cancelled. Customer will be notified.',
+                                                        duration: const Duration(seconds: 2),
+                                                      );
+                                                    }
+                                                  }
+                                                },
+                                                style: OutlinedButton.styleFrom(
+                                                  side: const BorderSide(color: Colors.grey, width: 1.5),
+                                                  foregroundColor: Colors.grey.shade600,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(12),
+                                                  ),
+                                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                                ),
+                                                child: isThisOrderDeclining
+                                                    ? const SizedBox(
+                                                        width: 18,
+                                                        height: 18,
+                                                        child: CircularProgressIndicator(
+                                                          strokeWidth: 2.5,
+                                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+                                                        ),
+                                                      )
+                                                    : Row(
+                                                        mainAxisAlignment: MainAxisAlignment.center,
+                                                        children: [
+                                                          const Icon(
+                                                            Icons.close,
+                                                            size: 18,
+                                                            color: Colors.grey,
+                                                          ),
+                                                          const SizedBox(width: 6),
+                                                          Text(
+                                                            'Not Available',
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              fontWeight: FontWeight.w600,
+                                                              letterSpacing: -0.3,
+                                                              color: Colors.grey.shade600,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          // Accept Delivery Button
+                                          Expanded(
+                                            child: SizedBox(
                                         height: 44,
                                         child: ElevatedButton(
                                           onPressed: isThisOrderAccepting ? null : () async {
@@ -634,11 +810,11 @@ class JobsTab extends StatelessWidget {
                                                       size: 18,
                                                       color: Colors.white,
                                                     ),
-                                                    const SizedBox(width: 8),
+                                                          const SizedBox(width: 6),
                                                     const Text(
-                                                      'Accept Delivery',
+                                                            'Accept',
                                                       style: TextStyle(
-                                                        fontSize: 14,
+                                                              fontSize: 12,
                                                         fontWeight: FontWeight.w600,
                                                         letterSpacing: -0.3,
                                                       ),
@@ -646,6 +822,9 @@ class JobsTab extends StatelessWidget {
                                                   ],
                                                 ),
                                         ),
+                                            ),
+                                          ),
+                                        ],
                                       );
                                     }),
                                   ),

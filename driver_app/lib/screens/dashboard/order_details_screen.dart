@@ -18,6 +18,116 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   String? _orderId;
   late final OrderController _orderController;
 
+  Future<bool> _showCancelDeliverySheet() async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final mq = MediaQuery.of(context);
+        final bottomInset = mq.viewPadding.bottom + mq.viewInsets.bottom;
+
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + bottomInset),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(100),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.cancel, color: Colors.red, size: 28),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Cancel this delivery?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'If you cancel, this order will be cancelled and the customer will be notified.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, height: 1.4, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.textPrimary,
+                          side: BorderSide(color: Colors.grey.withValues(alpha: 0.35)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Keep', style: TextStyle(fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Cancel delivery', style: TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+            ],
+          ),
+            ),
+          ),
+        );
+      },
+    );
+
+    return result == true;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -301,7 +411,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
                 // Action Button
                 if (order.status == AppConstants.statusPending)
-                  Obx(() => _buildActionButton(_orderController, order)),
+                  Obx(() => _buildActionButton(_orderController, order))
+                else if (order.status == AppConstants.statusAccepted)
+                  Obx(() => _buildCancelButton(_orderController, order)),
               ],
             ),
           );
@@ -711,13 +823,17 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                     _buildDetailRow(
                       icon: Icons.linear_scale,
                       label: 'Distance',
-                      value: '${order.distance.toStringAsFixed(1)} miles',
+                      value: order.orderNumber.startsWith('Supplies-')
+                          ? 'Supplies delivery'
+                          : '${order.distance.toStringAsFixed(1)} miles',
                     ),
                     const Divider(height: 24),
                     _buildDetailRow(
                       icon: Icons.timer,
                       label: 'Estimated Time',
-                      value: '${order.estimatedTime} mins',
+                      value: order.orderNumber.startsWith('Supplies-')
+                          ? '—'
+                          : '${order.estimatedTime} mins',
                     ),
                   ],
                 ),
@@ -879,7 +995,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'For ${order.distance.toStringAsFixed(1)} miles trip',
+              order.orderNumber.startsWith('Supplies-')
+                  ? 'Supplies delivery • Flat rate'
+                  : 'For ${order.distance.toStringAsFixed(1)} miles trip',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.85),
                 fontSize: 15,
@@ -934,6 +1052,60 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
             SizedBox(width: 10),
             Text(
               'ACCEPT ORDER',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCancelButton(OrderController controller, order) {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: OutlinedButton(
+        onPressed: controller.isLoading.value
+            ? null
+            : () async {
+          final shouldCancel = await _showCancelDeliverySheet();
+
+          if (shouldCancel == true && order.orderId != null) {
+            final success = await controller.cancelOrder(order.orderId!);
+            if (success && mounted) {
+              // Navigate back to home screen
+              Get.offAllNamed('/home');
+            }
+          }
+        },
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: Colors.red, width: 2),
+          foregroundColor: Colors.red,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+        child: controller.isLoading.value
+            ? const SizedBox(
+          height: 24,
+          width: 24,
+          child: CircularProgressIndicator(
+            color: Colors.red,
+            strokeWidth: 3,
+          ),
+        )
+            : const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.cancel, size: 22),
+            SizedBox(width: 10),
+            Text(
+              'CANCEL DELIVERY',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,

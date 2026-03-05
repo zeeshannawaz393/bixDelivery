@@ -111,8 +111,18 @@ class AuthController extends GetxController {
     }
     
     try {
+      // If auth state has changed, stop checking this old session.
+      final currentUser = _authService.currentUser;
+      if (currentUser == null || currentUser.uid != userId) {
+        print('⏸️ [AUTH CONTROLLER] Stopping periodic check - user changed or signed out');
+        _stopPeriodicSessionCheck();
+        return;
+      }
+
       print('⏰ [AUTH CONTROLLER] Performing periodic session check...');
-      final firestoreToken = await _driverService.getSessionToken(userId);
+      // Force server read to avoid stale cache causing false logouts.
+      // If network is unavailable, skip this check and try again later.
+      final firestoreToken = await _driverService.getSessionToken(userId, source: Source.server);
       
       // Check again after async operation (user might have logged out)
       if (_isHandlingInvalidation || _isSigningIn || _isSigningUp) {
@@ -680,7 +690,8 @@ class AuthController extends GetxController {
       final user = _authService.currentUser;
       if (user == null) return;
       
-      final firestoreToken = await _driverService.getSessionToken(user.uid);
+      // Force server read to avoid acting on stale cached token.
+      final firestoreToken = await _driverService.getSessionToken(user.uid, source: Source.server);
       if (firestoreToken == _currentSessionToken) {
         print('✅ [AUTH CONTROLLER] Session token matches - this device is active, ignoring logout notification');
         return;

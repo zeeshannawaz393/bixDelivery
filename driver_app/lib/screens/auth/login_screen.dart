@@ -34,6 +34,9 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text,
       );
 
+      // Widget might have been disposed after async sign-in
+      if (!mounted) return;
+
       if (success) {
         CustomToast.success(context, 'Welcome back!');
         Get.offAllNamed('/home', arguments: {'tab': 0});

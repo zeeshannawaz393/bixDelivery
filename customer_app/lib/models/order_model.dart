@@ -26,10 +26,12 @@ class OrderModel {
   // Status
   final String status;
   final String paymentStatus;
+  final String? cancelReason;
   
   // Timestamps
   final DateTime createdAt;
   final DateTime? acceptedAt;
+  final DateTime? cancelledAt;
   final DateTime? pickedUpAt;
   final DateTime? onTheWayAt;
   final DateTime? arrivingSoonAt;
@@ -54,8 +56,10 @@ class OrderModel {
     required this.driverEarnings,
     required this.status,
     required this.paymentStatus,
+    this.cancelReason,
     required this.createdAt,
     this.acceptedAt,
+    this.cancelledAt,
     this.pickedUpAt,
     this.onTheWayAt,
     this.arrivingSoonAt,
@@ -81,9 +85,11 @@ class OrderModel {
       'driverEarnings': driverEarnings,
       'status': status,
       'paymentStatus': paymentStatus,
+      'cancelReason': cancelReason,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(createdAt), // Set to createdAt on creation
       'acceptedAt': acceptedAt != null ? Timestamp.fromDate(acceptedAt!) : null,
+      'cancelledAt': cancelledAt != null ? Timestamp.fromDate(cancelledAt!) : null,
       'pickedUpAt': pickedUpAt != null ? Timestamp.fromDate(pickedUpAt!) : null,
       'onTheWayAt': onTheWayAt != null ? Timestamp.fromDate(onTheWayAt!) : null,
       'arrivingSoonAt': arrivingSoonAt != null ? Timestamp.fromDate(arrivingSoonAt!) : null,
@@ -145,8 +151,10 @@ class OrderModel {
       driverEarnings: (map['driverEarnings'] ?? 0.0).toDouble(),
       status: map['status'] ?? 'pending',
       paymentStatus: map['paymentStatus'] ?? 'pending',
+      cancelReason: map['cancelReason'],
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       acceptedAt: _parseTimestamp(map['acceptedAt']),
+      cancelledAt: _parseTimestamp(map['cancelledAt']),
       pickedUpAt: _parseTimestamp(map['pickedUpAt']),
       onTheWayAt: _parseTimestamp(map['onTheWayAt']),
       arrivingSoonAt: _parseTimestamp(map['arrivingSoonAt']),

@@ -18,6 +18,7 @@ class AppConstants {
   static const String statusOnTheWay = 'on_the_way';
   static const String statusArrivingSoon = 'arriving_soon';
   static const String statusCompleted = 'completed';
+  static const String statusCancelled = 'cancelled';
   
   // Payment Status
   static const String paymentPending = 'pending';

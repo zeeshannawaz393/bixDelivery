@@ -9,8 +9,178 @@ import '../../utils/constants.dart';
 import '../../widgets/slide_button.dart';
 import '../../widgets/custom_toast.dart';
 
-class ActiveDeliveryScreen extends StatelessWidget {
+class ActiveDeliveryScreen extends StatefulWidget {
   const ActiveDeliveryScreen({super.key});
+
+  @override
+  State<ActiveDeliveryScreen> createState() => _ActiveDeliveryScreenState();
+}
+
+class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
+  final OrderController _orderController = Get.find<OrderController>();
+  String? _orderId;
+
+  Future<bool> _showCancelDeliverySheet(BuildContext context) async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final mq = MediaQuery.of(context);
+        final bottomInset = mq.viewPadding.bottom + mq.viewInsets.bottom;
+
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + bottomInset),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.10),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.cancel, color: Colors.red, size: 28),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Cancel this delivery?',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'If you cancel, this order will be cancelled and the customer will be notified.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, height: 1.4, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 48,
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.textPrimary,
+                              side: BorderSide(color: Colors.grey.withValues(alpha: 0.35)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: const Text('Keep', style: TextStyle(fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SizedBox(
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: const Text('Cancel delivery', style: TextStyle(fontWeight: FontWeight.w700)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    return result == true;
+  }
+
+  Widget _buildCancelDeliveryButton(BuildContext context, OrderController controller, order) {
+    if (order.orderId == null || (order.orderId as String).isEmpty) {
+      return const SizedBox.shrink();
+    }
+    if (order.status != AppConstants.statusAccepted) {
+      return const SizedBox.shrink();
+    }
+
+    return Obx(() {
+      final isLoading = controller.isLoading.value;
+      return SizedBox(
+        width: double.infinity,
+        height: 54,
+        child: OutlinedButton(
+          onPressed: isLoading
+              ? null
+              : () async {
+                  final shouldCancel = await _showCancelDeliverySheet(context);
+                  if (shouldCancel) {
+                    final success = await controller.cancelOrder(order.orderId!);
+                    if (success && context.mounted) {
+                      Get.offAllNamed('/home');
+                    }
+                  }
+                },
+          style: OutlinedButton.styleFrom(
+            side: const BorderSide(color: Colors.red, width: 2),
+            foregroundColor: Colors.red,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+          child: isLoading
+              ? const SizedBox(
+                  height: 22,
+                  width: 22,
+                  child: CircularProgressIndicator(color: Colors.red, strokeWidth: 3),
+                )
+              : const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.cancel, size: 22),
+                    SizedBox(width: 10),
+                    Text(
+                      'CANCEL DELIVERY',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                    ),
+                  ],
+                ),
+        ),
+      );
+    });
+  }
 
   // Helper method to get customer name future (ensures fresh call each time)
   Future<String?> _getCustomerNameFuture(String customerId) async {
@@ -105,14 +275,38 @@ class ActiveDeliveryScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final args = Get.arguments;
-    final orderId = args?['orderId'];
-    final OrderController _orderController = Get.find<OrderController>();
+  void initState() {
+    super.initState();
 
-    if (orderId != null) {
-      _orderController.getOrderById(orderId);
+    final args = Get.arguments;
+    if (args is Map && args['orderId'] != null) {
+      _orderId = args['orderId'].toString();
+    } else if (args is String) {
+      _orderId = args;
     }
+
+    if (_orderId != null && _orderId!.isNotEmpty) {
+      // Load once + keep in sync in real-time
+      _orderController.getOrderById(_orderId!);
+      _orderController.listenToOrder(_orderId!);
+    } else {
+      // Make it obvious when routing is wrong
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          CustomToast.error(context, 'Order ID missing. Please open from Active Deliveries.');
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _orderController.stopListeningToOrder();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
@@ -130,6 +324,16 @@ class ActiveDeliveryScreen extends StatelessWidget {
       ),
       body: SafeArea(
         child: Obx(() {
+          if (_orderId == null || _orderId!.isEmpty) {
+            return Center(
+              child: Text(
+                'Order not found.\nPlease go back and open it again.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            );
+          }
+
           final order = _orderController.currentOrder.value;
           if (order == null) {
             return const Center(
@@ -264,7 +468,14 @@ class ActiveDeliveryScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: _buildDynamicSliderButton(order, _orderController),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildCancelDeliveryButton(context, _orderController, order),
+                    if (order.status == AppConstants.statusAccepted) const SizedBox(height: 12),
+                    _buildDynamicSliderButton(order, _orderController),
+                  ],
+                ),
               ),
             ],
           );
@@ -671,13 +882,17 @@ class ActiveDeliveryScreen extends StatelessWidget {
                     _buildDetailRow(
                       icon: Icons.linear_scale,
                       label: 'Distance',
-                      value: '${order.distance.toStringAsFixed(1)} miles',
+                      value: order.orderNumber.startsWith('Supplies-')
+                          ? 'Supplies delivery'
+                          : '${order.distance.toStringAsFixed(1)} miles',
                     ),
                     const Divider(height: 24),
                     _buildDetailRow(
                       icon: Icons.timer,
                       label: 'Estimated Time',
-                      value: '${order.estimatedTime} mins',
+                      value: order.orderNumber.startsWith('Supplies-')
+                          ? '—'
+                          : '${order.estimatedTime} mins',
                     ),
                   ],
                 ),
@@ -839,7 +1054,9 @@ class ActiveDeliveryScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'For ${order.distance.toStringAsFixed(1)} miles trip',
+              order.orderNumber.startsWith('Supplies-')
+                  ? 'Supplies delivery • Flat rate'
+                  : 'For ${order.distance.toStringAsFixed(1)} miles trip',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.85),
                 fontSize: 15,

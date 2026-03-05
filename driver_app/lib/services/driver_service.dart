@@ -103,9 +103,12 @@ class DriverService extends GetxService {
   }
   
   // Get session token
-  Future<String?> getSessionToken(String userId) async {
+  Future<String?> getSessionToken(String userId, {Source source = Source.serverAndCache}) async {
     try {
-      final doc = await _firestore.collection('users').doc(userId).get();
+      final doc = await _firestore
+          .collection('users')
+          .doc(userId)
+          .get(GetOptions(source: source));
       if (doc.exists) {
         return doc.data()?['currentSessionToken'] as String?;
       }

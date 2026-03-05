@@ -11,6 +11,8 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
 import 'screens/tracking/delivery_complete_screen.dart';
 import 'screens/tracking/delivery_en_route_screen.dart';
+import 'screens/supplies/order_supplies_screen.dart';
+import 'screens/supplies/supplies_webview_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -88,8 +90,15 @@ class _CustomerAppState extends State<CustomerApp> with WidgetsBindingObserver {
           name: '/home',
           page: () {
             final args = Get.arguments;
-            final initialTab = args is Map<String, dynamic> ? args['tab'] as int? : null;
-            return HomeScreen(initialTab: initialTab);
+            final map = (args != null && args is Map) ? args as Map : <String, dynamic>{};
+            final initialTab = map['tab'] is int ? map['tab'] as int : 0;
+            final showCreateDelivery = map['showCreateDelivery'] == true;
+            final orderNumber = map['orderNumber']?.toString();
+            return HomeScreen(
+              initialTab: initialTab,
+              showCreateDeliveryForm: showCreateDelivery,
+              initialOrderNumber: (orderNumber != null && orderNumber.isNotEmpty) ? orderNumber : null,
+            );
           },
         ),
         GetPage(
@@ -107,6 +116,22 @@ class _CustomerAppState extends State<CustomerApp> with WidgetsBindingObserver {
         GetPage(
           name: '/delivery-en-route',
           page: () => const DeliveryEnRouteScreen(),
+        ),
+        GetPage(
+          name: '/order-supplies',
+          page: () => const OrderSuppliesScreen(),
+        ),
+        GetPage(
+          name: '/supplies-webview',
+          page: () {
+            final args = Get.arguments;
+            final url = args is Map ? (args['url']?.toString() ?? '') : '';
+            final title = args is Map ? (args['title']?.toString() ?? 'getsuply.com') : 'getsuply.com';
+            return SuppliesWebViewScreen(
+              initialUrl: url.isNotEmpty ? url : 'https://getsuply.com/',
+              title: title,
+            );
+          },
         ),
       ],
     );

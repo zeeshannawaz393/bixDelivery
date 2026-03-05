@@ -223,6 +223,64 @@ class OrderController extends GetxController {
     }
   }
 
+  // Cancel order (only for pending or accepted orders)
+  Future<bool> cancelOrder(String orderId) async {
+    try {
+      print('🚫 [ORDER CONTROLLER] Customer attempting to cancel order...');
+      print('   Order ID: $orderId');
+
+      isLoading.value = true;
+
+      final authController = Get.find<AuthController>();
+      final customerId = authController.user.value?.uid ?? '';
+
+      print('   Customer ID: $customerId');
+
+      if (customerId.isEmpty) {
+        print('❌ [ORDER CONTROLLER] Cannot cancel order - customer ID is empty');
+        isLoading.value = false;
+        if (Get.context != null) {
+          CustomToast.error(Get.context!, 'Please sign in to cancel orders.');
+        }
+        return false;
+      }
+
+      final success = await _orderService.cancelOrderByCustomer(orderId, customerId);
+
+      if (success) {
+        print('✅ [ORDER CONTROLLER] Order cancelled successfully!');
+        print('   Order ID: $orderId');
+        print('   Customer ID: $customerId');
+        isLoading.value = false;
+        if (Get.context != null) {
+          CustomToast.success(Get.context!, 'Order cancelled successfully', duration: const Duration(seconds: 2));
+        }
+        // Reload orders to reflect cancellation
+        await getOrderById(orderId);
+        return true;
+      } else {
+        print('❌ [ORDER CONTROLLER] Order cancellation failed');
+        print('   Order ID: $orderId');
+        print('   Customer ID: $customerId');
+        isLoading.value = false;
+        if (Get.context != null) {
+          CustomToast.error(Get.context!, 'Unable to cancel order. It may have already been picked up.');
+        }
+      }
+
+      isLoading.value = false;
+      return false;
+    } catch (e) {
+      print('❌ [ORDER CONTROLLER] Exception cancelling order: $e');
+      print('   Order ID: $orderId');
+      isLoading.value = false;
+      if (Get.context != null) {
+        CustomToast.error(Get.context!, 'Failed to cancel order: ${e.toString()}');
+      }
+      return false;
+    }
+  }
+
   // Clear all orders (called on logout)
   void clearOrders() {
     _stopListeningToOrders();

@@ -9,8 +9,11 @@ class OrderService extends GetxService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Get pending orders (without orderBy to avoid index requirement)
-  Stream<List<OrderModel>> getPendingOrders() {
+  // Note: Firestore doesn't support array exclusion in where clauses for real-time queries
+  // So we filter client-side after fetching all pending orders
+  Stream<List<OrderModel>> getPendingOrders([String? currentDriverId]) {
     print('🔍 [ORDER SERVICE] Setting up real-time listener for pending orders...');
+    print('   Current Driver ID: $currentDriverId');
     return _firestore
         .collection(AppConstants.ordersCollection)
         .where('status', isEqualTo: AppConstants.statusPending)
@@ -34,6 +37,16 @@ class OrderService extends GetxService {
                       print('⚠️ [ORDER SERVICE] Empty document data for order: ${doc.id}');
                       return null;
                     }
+
+                    // Filter out orders declined by current driver
+                    if (currentDriverId != null && currentDriverId.isNotEmpty) {
+                      final declinedDrivers = List<String>.from(data['declinedDrivers'] ?? []);
+                      if (declinedDrivers.contains(currentDriverId)) {
+                        print('🚫 [ORDER SERVICE] Filtering out order ${doc.id} - declined by current driver');
+                        return null;
+                      }
+                    }
+
                     return OrderModel.fromMap(data, doc.id);
                   } catch (e) {
                     print('❌ [ORDER SERVICE] Error parsing order ${doc.id}: $e');
@@ -42,10 +55,11 @@ class OrderService extends GetxService {
                 })
                 .whereType<OrderModel>() // Filter out null values
                 .toList();
-            
+
             // Sort by createdAt in memory (descending - newest first)
             orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-            
+
+            print('✅ [ORDER SERVICE] Filtered ${orders.length} pending orders for driver $currentDriverId');
             return orders;
           } catch (e) {
             print('❌ [ORDER SERVICE] Error processing pending orders: $e');
@@ -306,58 +320,53 @@ class OrderService extends GetxService {
         return false;
       }
       
-      // Use set with merge to ensure driverId is set even if field doesn't exist
-      await _firestore
-          .collection(AppConstants.ordersCollection)
-          .doc(orderId)
-          .set({
-        'driverId': driverId,
-        'status': AppConstants.statusAccepted,
-        'acceptedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-      
-      print('✅ [ORDER SERVICE] Order update sent to Firestore');
-      
-      // Verify the update succeeded by reading the document back
-      await Future.delayed(const Duration(milliseconds: 500)); // Wait for Firestore to propagate
-      final doc = await _firestore
-          .collection(AppConstants.ordersCollection)
-          .doc(orderId)
-          .get();
-      
-      if (doc.exists) {
-        final data = doc.data()!;
-        final savedDriverId = data['driverId'] ?? '';
-        final savedStatus = data['status'] ?? '';
-        
-        print('🔍 [ORDER SERVICE] Verifying order update...');
-        print('   Saved Driver ID: $savedDriverId');
-        print('   Saved Status: $savedStatus');
-        
-        if (savedDriverId == driverId && savedStatus == AppConstants.statusAccepted) {
-          print('✅ [ORDER SERVICE] Order accepted successfully and verified!');
-          print('   Order ID: $orderId');
-          print('   Driver ID: $driverId');
-          print('   Status: ${AppConstants.statusAccepted}');
-          print('   This order should now appear in active deliveries');
-          return true;
-        } else {
-          print('⚠️ [ORDER SERVICE] Order update verification failed!');
-          print('   Expected Driver ID: $driverId, Got: $savedDriverId');
-          print('   Expected Status: ${AppConstants.statusAccepted}, Got: $savedStatus');
-          if (Get.context != null) {
-            CustomToast.error(Get.context!, 'Order acceptance verification failed. Please try again.');
-          }
-          return false;
+      // Use a transaction to prevent race conditions (two drivers accepting / overwrites)
+      final result = await _firestore.runTransaction<String>((tx) async {
+        final ref = _firestore.collection(AppConstants.ordersCollection).doc(orderId);
+        final snap = await tx.get(ref);
+
+        if (!snap.exists) {
+          return 'not_found';
         }
-      } else {
-        print('❌ [ORDER SERVICE] Order document does not exist after update!');
-        if (Get.context != null) {
-          CustomToast.error(Get.context!, 'Order not found after acceptance.');
+
+        final data = snap.data() ?? <String, dynamic>{};
+        final currentStatus = (data['status'] ?? '').toString();
+        final currentDriverId = data['driverId']?.toString();
+
+        // Only allow accepting if still pending and unassigned
+        if (currentStatus != AppConstants.statusPending) {
+          return 'not_pending';
         }
-        return false;
+        if (currentDriverId != null && currentDriverId.isNotEmpty) {
+          return 'already_assigned';
+        }
+
+        tx.update(ref, {
+          'driverId': driverId,
+          'status': AppConstants.statusAccepted,
+          'acceptedAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        return 'accepted';
+      });
+
+      if (result == 'accepted') {
+        print('✅ [ORDER SERVICE] Order accepted (transaction)!');
+        return true;
       }
+
+      print('⚠️ [ORDER SERVICE] Accept prevented: $result');
+      if (Get.context != null) {
+        if (result == 'not_found') {
+          CustomToast.error(Get.context!, 'Order not found.');
+        } else if (result == 'already_assigned') {
+          CustomToast.error(Get.context!, 'This order was already taken by another driver.');
+        } else {
+          CustomToast.error(Get.context!, 'Order is no longer available.');
+        }
+      }
+      return false;
     } catch (e) {
       print('❌ [ORDER SERVICE] Error accepting order: $e');
       print('   Order ID: $orderId');
@@ -370,13 +379,191 @@ class OrderService extends GetxService {
     }
   }
 
+  // Cancel order (only for accepted orders - CANCEL the order)
+  Future<bool> cancelOrder(String orderId, String driverId) async {
+    try {
+      print('🚫 [ORDER SERVICE] Driver cancelling order...');
+      print('   Order ID: $orderId');
+      print('   Driver ID: $driverId');
+
+      // First verify this driver actually accepted the order
+      final doc = await _firestore
+          .collection(AppConstants.ordersCollection)
+          .doc(orderId)
+          .get();
+
+      if (!doc.exists) {
+        print('❌ [ORDER SERVICE] Order does not exist: $orderId');
+        if (Get.context != null) {
+          CustomToast.error(Get.context!, 'Order not found.');
+        }
+        return false;
+      }
+
+      final data = doc.data()!;
+      final currentDriverId = data['driverId'] ?? '';
+      final currentStatus = data['status'] ?? '';
+
+      // Only allow cancellation if this driver accepted the order and it's not too late
+      if (currentDriverId != driverId) {
+        print('❌ [ORDER SERVICE] Driver mismatch - cannot cancel order');
+        print('   Current Driver ID: $currentDriverId');
+        print('   Requesting Driver ID: $driverId');
+        if (Get.context != null) {
+          CustomToast.error(Get.context!, 'You cannot cancel this order.');
+        }
+        return false;
+      }
+
+      if (currentStatus != AppConstants.statusAccepted) {
+        print('❌ [ORDER SERVICE] Order status does not allow cancellation');
+        print('   Current Status: $currentStatus');
+        if (Get.context != null) {
+          CustomToast.error(Get.context!, 'Order cannot be cancelled at this stage.');
+        }
+        return false;
+      }
+
+      // Cancel the order (terminal). It should NOT be available for other drivers.
+      await _firestore
+          .collection(AppConstants.ordersCollection)
+          .doc(orderId)
+          .update({
+        'driverId': FieldValue.delete(), // Remove driver assignment
+        'status': AppConstants.statusCancelled, // Cancelled (not available anymore)
+        'acceptedAt': FieldValue.delete(), // Remove acceptance timestamp
+        'cancelledAt': FieldValue.serverTimestamp(), // Add cancellation timestamp
+        'cancelReason': 'driver_cancelled',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      print('✅ [ORDER SERVICE] Order cancelled successfully!');
+      print('   Order ID: $orderId');
+      print('   Status set to: ${AppConstants.statusCancelled}');
+      print('   Driver ID removed');
+      return true;
+    } catch (e) {
+      print('❌ [ORDER SERVICE] Error cancelling order: $e');
+      print('   Order ID: $orderId');
+      print('   Driver ID: $driverId');
+      if (Get.context != null) {
+        CustomToast.error(Get.context!, 'Failed to cancel order: ${e.toString()}');
+      }
+      return false;
+    }
+  }
+
+  // Decline order (for pending orders - indicate driver is not available)
+  Future<bool> declineOrder(String orderId, String driverId) async {
+    try {
+      print('👎 [ORDER SERVICE] Driver NOT AVAILABLE - cancelling order...');
+      print('   Order ID: $orderId');
+      print('   Driver ID: $driverId');
+
+      // First check if order exists and is still pending
+      final doc = await _firestore
+          .collection(AppConstants.ordersCollection)
+          .doc(orderId)
+          .get();
+
+      if (!doc.exists) {
+        print('❌ [ORDER SERVICE] Order does not exist: $orderId');
+        if (Get.context != null) {
+          CustomToast.error(Get.context!, 'Order not found.');
+        }
+        return false;
+      }
+
+      final data = doc.data()!;
+      final currentStatus = data['status'] ?? '';
+
+      if (currentStatus != AppConstants.statusPending) {
+        print('❌ [ORDER SERVICE] Order is no longer pending: $currentStatus');
+        if (Get.context != null) {
+          CustomToast.error(Get.context!, 'Order is no longer available.');
+        }
+        return false;
+      }
+
+      // Cancel the order (terminal) because driver is not available
+      await _firestore
+          .collection(AppConstants.ordersCollection)
+          .doc(orderId)
+          .update({
+        'status': AppConstants.statusCancelled,
+        'cancelledAt': FieldValue.serverTimestamp(),
+        'cancelReason': 'no_drivers_available',
+        'cancelledByDriverId': driverId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      print('✅ [ORDER SERVICE] Order cancelled (no drivers available)!');
+      print('   Order ID: $orderId');
+      print('   Driver ID: $driverId');
+      return true;
+    } catch (e) {
+      print('❌ [ORDER SERVICE] Error cancelling order from Not Available: $e');
+      print('   Order ID: $orderId');
+      print('   Driver ID: $driverId');
+      if (Get.context != null) {
+        CustomToast.error(Get.context!, 'Failed to cancel order: ${e.toString()}');
+      }
+      return false;
+    }
+  }
+
+  // Check and cancel expired orders (orders pending for too long)
+  Future<int> cancelExpiredOrders({int maxAgeMinutes = 30}) async {
+    try {
+      print('⏰ [ORDER SERVICE] Checking for expired orders...');
+      print('   Max age: $maxAgeMinutes minutes');
+
+      final cutoffTime = DateTime.now().subtract(Duration(minutes: maxAgeMinutes));
+      print('   Cutoff time: $cutoffTime');
+
+      // Query for pending orders older than cutoff time
+      final expiredOrders = await _firestore
+          .collection(AppConstants.ordersCollection)
+          .where('status', isEqualTo: AppConstants.statusPending)
+          .where('createdAt', isLessThan: Timestamp.fromDate(cutoffTime))
+          .get();
+
+      print('📊 [ORDER SERVICE] Found ${expiredOrders.docs.length} expired orders');
+
+      int cancelledCount = 0;
+      for (final doc in expiredOrders.docs) {
+        try {
+          await _firestore
+              .collection(AppConstants.ordersCollection)
+              .doc(doc.id)
+              .update({
+            'status': AppConstants.statusCancelled,
+            'cancelledAt': FieldValue.serverTimestamp(),
+            'cancelReason': 'expired_no_drivers',
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+          cancelledCount++;
+          print('✅ [ORDER SERVICE] Cancelled expired order: ${doc.id}');
+        } catch (e) {
+          print('❌ [ORDER SERVICE] Failed to cancel order ${doc.id}: $e');
+        }
+      }
+
+      print('✅ [ORDER SERVICE] Cancelled $cancelledCount expired orders');
+      return cancelledCount;
+    } catch (e) {
+      print('❌ [ORDER SERVICE] Error cancelling expired orders: $e');
+      return 0;
+    }
+  }
+
   // Update order status
   Future<bool> updateOrderStatus(String orderId, String status) async {
     try {
       print('🔥 [ORDER SERVICE] Updating order status in Firestore...');
       print('   Order ID: $orderId');
       print('   New Status: $status');
-      
+
       final updateData = {
         'status': status,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -399,12 +586,12 @@ class OrderService extends GetxService {
 
       print('📝 [ORDER SERVICE] Update data: $updateData');
       print('📡 [ORDER SERVICE] Sending update to Firestore...');
-      
+
       await _firestore
           .collection(AppConstants.ordersCollection)
           .doc(orderId)
           .update(updateData);
-      
+
       print('✅ [ORDER SERVICE] Firestore update successful!');
       // Cloud Functions automatically send notifications on status change
       return true;

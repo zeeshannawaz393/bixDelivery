@@ -18,18 +18,19 @@ class UserService extends GetxService {
     required String userId,
     required String email,
     required String fullName,
-    required String phoneNumber,
+    String? phoneNumber,
   }) async {
     try {
       print('📝 [USER SERVICE] Creating user profile...');
       print('   User ID: $userId');
       print('   Email: $email');
+      print('   Phone Number: ${phoneNumber ?? "Not provided"}');
       
       final sessionToken = _generateSessionToken();
       final userData = {
         'email': email,
         'fullName': fullName,
-        'phoneNumber': phoneNumber,
+        if (phoneNumber != null && phoneNumber.isNotEmpty) 'phoneNumber': phoneNumber,
         'userType': 'customer',
         'currentSessionToken': sessionToken,
         'sessionTokenUpdatedAt': FieldValue.serverTimestamp(),

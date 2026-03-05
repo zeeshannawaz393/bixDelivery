@@ -36,14 +36,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   Future<void> _handleSignUp() async {
     if (_formKey.currentState!.validate()) {
-      final phoneNumber = '${_countryCodeController.text}${_phoneController.text}';
+      // Phone number is optional - only include if provided
+      final phoneNumber = _phoneController.text.trim().isEmpty 
+          ? null 
+          : '${_countryCodeController.text}${_phoneController.text}';
       final email = _emailController.text.trim();
       final fullName = _fullNameController.text.trim();
       
       print('📝 [SIGN UP] Form Data:');
       print('   Email: $email');
       print('   Full Name: $fullName');
-      print('   Phone Number: $phoneNumber');
+      print('   Phone Number: ${phoneNumber ?? "Not provided"}');
       print('   Password: ${'*' * _passwordController.text.length} (${_passwordController.text.length} chars)');
       
       final success = await _authController.signUp(
@@ -156,14 +159,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       const SizedBox(height: 16),
                       PhoneInputField(
-                        label: 'Phone Number',
+                        label: 'Phone Number (Optional)',
                         countryCodeController: _countryCodeController,
                         phoneController: _phoneController,
                         validator: (value) {
-                          // value contains full number with country code, but we need to check only phone number part
+                          // Phone number is optional, but if provided, validate it
                           final phoneNumber = _phoneController.text;
                           if (phoneNumber.isEmpty) {
-                            return 'Please enter your phone number';
+                            // Empty is valid (optional field)
+                            return null;
                           }
                           // Remove any non-digit characters for validation (only from phone number, not country code)
                           final digitsOnly = phoneNumber.replaceAll(RegExp(r'[^\d]'), '');

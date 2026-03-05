@@ -11,6 +11,7 @@
 
 const admin = require('firebase-admin');
 const path = require('path');
+const statusMessages = require('./status_messages');
 
 // Initialize Firebase Admin SDK
 const serviceAccountPath = path.join(__dirname, '../couriermvp-firebase-adminsdk-fbsvc-809ec4184d.json');
@@ -90,6 +91,7 @@ function getStatusText(status) {
     'on_the_way': 'On The Way',
     'arriving_soon': 'Arriving Soon',
     'completed': 'Completed',
+    'cancelled': 'Cancelled',
   };
   return statusMap[status] || status;
 }
@@ -171,10 +173,12 @@ async function sendOrderStatusNotificationToCustomer(orderId, status) {
       return false;
     }
     
-    // Create notification message
-    const statusText = getStatusText(status);
-    const title = 'Order Status Updated';
-    const body = `Your order #${order.orderNumber || orderId} status: ${statusText}`;
+    // Get user-friendly message from status_messages.js
+    const messageConfig = statusMessages.customer[status];
+    const title = messageConfig ? messageConfig.title : 'Order Status Updated';
+    const body = messageConfig 
+      ? messageConfig.body 
+      : `Your order #${order.orderNumber || orderId} status: ${getStatusText(status)}`;
     
     const data = {
       type: 'order_status_update',
@@ -212,10 +216,12 @@ async function sendOrderStatusNotificationToDriver(orderId, status) {
       return false;
     }
     
-    // Create notification message
-    const statusText = getStatusText(status);
-    const title = 'Order Status Updated';
-    const body = `Order #${order.orderNumber || orderId} status: ${statusText}`;
+    // Get user-friendly message from status_messages.js
+    const messageConfig = statusMessages.driver[status];
+    const title = messageConfig ? messageConfig.title : 'Order Status Updated';
+    const body = messageConfig 
+      ? messageConfig.body 
+      : `Order #${order.orderNumber || orderId} status: ${getStatusText(status)}`;
     
     const data = {
       type: 'order_status_update',

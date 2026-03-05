@@ -121,7 +121,7 @@ class AuthController extends GetxController {
     required String email,
     required String password,
     required String fullName,
-    required String phoneNumber,
+    String? phoneNumber,
   }) async {
     try {
       isLoading.value = true;

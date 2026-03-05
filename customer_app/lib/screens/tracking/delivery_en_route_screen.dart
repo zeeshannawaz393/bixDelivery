@@ -205,6 +205,8 @@ class _DeliveryEnRouteScreenState extends State<DeliveryEnRouteScreen> {
         return 'Arriving Soon';
       case AppConstants.statusCompleted:
         return 'Order Delivered';
+      case AppConstants.statusCancelled:
+        return 'Order Cancelled';
       default:
         return 'Order Details';
     }
@@ -230,9 +232,153 @@ class _DeliveryEnRouteScreenState extends State<DeliveryEnRouteScreen> {
         return '$driverName is arriving soon with your order.';
       case AppConstants.statusCompleted:
         return 'Your order has been delivered successfully!';
+      case AppConstants.statusCancelled:
+        return 'This order has been cancelled.';
       default:
         return 'Tracking your order...';
     }
+  }
+
+  Future<bool> _showCancelOrderSheet() async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final mq = MediaQuery.of(context);
+        final bottomInset = mq.viewPadding.bottom + mq.viewInsets.bottom;
+
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + bottomInset),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(100),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.cancel, color: Colors.red, size: 28),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Cancel this order?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'If you cancel now, we will stop looking for a driver.\nYou can place a new order anytime.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.4,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.backgroundLight,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.withValues(alpha: 0.12)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline, size: 18, color: Colors.grey.shade700),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'This action is not reversible.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.35,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.textPrimary,
+                          side: BorderSide(color: Colors.grey.withValues(alpha: 0.35)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Keep order', style: TextStyle(fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Cancel order', style: TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+            ],
+          ),
+            ),
+          ),
+        );
+      },
+    );
+
+    return result == true;
   }
 
   String _formatTime(DateTime dateTime) {
@@ -242,12 +388,21 @@ class _DeliveryEnRouteScreenState extends State<DeliveryEnRouteScreen> {
     return '$hour:$minute $period';
   }
 
+  String _formatDateTime(DateTime dateTime) {
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final day = dateTime.day.toString().padLeft(2, '0');
+    final month = months[dateTime.month - 1];
+    final year = dateTime.year;
+    return '$month $day, $year • ${_formatTime(dateTime)}';
+  }
+
   String? _getEstimatedArrival(OrderModel? order) {
     if (order == null) return null;
     
     // Don't show estimated arrival for pending or completed orders
     if (order.status == AppConstants.statusPending || 
-        order.status == AppConstants.statusCompleted) {
+        order.status == AppConstants.statusCompleted ||
+        order.status == AppConstants.statusCancelled) {
       return null;
     }
     
@@ -320,8 +475,9 @@ class _DeliveryEnRouteScreenState extends State<DeliveryEnRouteScreen> {
                       final order = _orderController.currentOrder.value;
                       final currentStatus = order?.status ?? _currentOrder?.status;
                       
-                      // Hide courier info card for pending orders
-                      if (currentStatus == AppConstants.statusPending) {
+                      // Hide courier info card for pending/cancelled orders
+                      if (currentStatus == AppConstants.statusPending ||
+                          currentStatus == AppConstants.statusCancelled) {
                         return const SizedBox.shrink();
                       }
                       
@@ -630,15 +786,175 @@ class _DeliveryEnRouteScreenState extends State<DeliveryEnRouteScreen> {
                       );
                     }),
                     const SizedBox(height: 32),
-                    // Delivery Progress Tracker
+                    // Cancellation state (only when cancelled)
+                    Obx(() {
+                      final order = _orderController.currentOrder.value ?? _currentOrder;
+                      if (order == null) return const SizedBox.shrink();
+                      if (order.status != AppConstants.statusCancelled) return const SizedBox.shrink();
+
+                      final reason = order.cancelReason ?? '';
+                      final subtitle = reason == 'expired_no_drivers'
+                          ? 'No drivers were available in time.'
+                          : reason == 'no_drivers_available'
+                              ? 'No drivers were available at the moment.'
+                          : reason == 'customer_cancelled'
+                              ? 'You cancelled this order.'
+                              : reason == 'driver_cancelled'
+                                  ? 'The driver cancelled this order.'
+                              : 'This order has been cancelled.';
+
+                      final cancelledAt = order.cancelledAt;
+                      final timeText = cancelledAt != null ? _formatDateTime(cancelledAt) : null;
+
+                      return Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.red.withValues(alpha: 0.18)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withValues(alpha: 0.12),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.cancel, color: Colors.red, size: 20),
+                                ),
+                                const SizedBox(width: 10),
+                                const Expanded(
+                                  child: Text(
+                                    'Order cancelled',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              subtitle,
+                              style: TextStyle(
+                                fontSize: 14,
+                                height: 1.35,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            if (timeText != null) ...[
+                              const SizedBox(height: 10),
+                              Text(
+                                'Cancelled at $timeText',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 46,
+                              child: ElevatedButton(
+                                onPressed: () => Get.offAllNamed('/home', arguments: {'tab': 0}),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primaryBlue,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                child: const Text('Place a new order', style: TextStyle(fontWeight: FontWeight.w700)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                    // Delivery Progress Tracker (hide when cancelled)
                     Obx(() {
                       final order = _orderController.currentOrder.value;
+                      if (order?.status == AppConstants.statusCancelled) {
+                        return const SizedBox.shrink();
+                      }
                       return _buildProgressTracker(
                         order?.status ?? AppConstants.statusPending,
                         order,
                       );
                     }),
                     const SizedBox(height: 32),
+                    // Cancel Order Button - Only show for pending or accepted orders
+                    Obx(() {
+                      final order = _orderController.currentOrder.value;
+                      final currentStatus = order?.status ?? _currentOrder?.status;
+                      
+                      if (currentStatus == AppConstants.statusPending || 
+                          currentStatus == AppConstants.statusAccepted) {
+                        return SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: OutlinedButton(
+                            onPressed: _orderController.isLoading.value ? null : () async {
+                              final shouldCancel = await _showCancelOrderSheet();
+
+                              if (shouldCancel == true) {
+                                final args = Get.arguments;
+                                final orderId = args is Map ? args['orderId'] : null;
+                                if (orderId != null) {
+                                  final success = await _orderController.cancelOrder(orderId);
+                                  if (success && mounted) {
+                                    // Navigate back to home
+                                    Get.offAllNamed('/home', arguments: {'tab': 1});
+                                  }
+                                }
+                              }
+                            },
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Colors.red, width: 2),
+                              foregroundColor: Colors.red,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: _orderController.isLoading.value
+                                ? const SizedBox(
+                                    height: 24,
+                                    width: 24,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.red,
+                                      strokeWidth: 3,
+                                    ),
+                                  )
+                                : const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.cancel, size: 22),
+                                      SizedBox(width: 10),
+                                      Text(
+                                        'CANCEL ORDER',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    }),
+                    const SizedBox(height: 16),
                     // Delivery Complete Button - Only show when status is completed
                     Obx(() {
                       final order = _orderController.currentOrder.value;
@@ -907,6 +1223,9 @@ class _DeliveryEnRouteScreenState extends State<DeliveryEnRouteScreen> {
       case AppConstants.statusCompleted:
         timestamp = order.completedAt;
         break;
+      case AppConstants.statusCancelled:
+        timestamp = order.cancelledAt;
+        break;
     }
     
     if (timestamp == null) {
@@ -967,6 +1286,11 @@ class _DeliveryEnRouteScreenState extends State<DeliveryEnRouteScreen> {
         return {
           'label': 'Completed',
           'icon': Icons.check_circle,
+        };
+      case AppConstants.statusCancelled:
+        return {
+          'label': 'Cancelled',
+          'icon': Icons.cancel,
         };
       default:
         return {

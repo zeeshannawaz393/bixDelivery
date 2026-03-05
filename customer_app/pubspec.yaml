@@ -2,7 +2,7 @@ name: customer_app
 description: "Courier MVP - Customer App"
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.5+7
 
 environment:
   sdk: ^3.9.0
@@ -42,6 +42,18 @@ dependencies:
   # URL Launcher for phone calls
   url_launcher: ^6.3.1
 
+  # In-app web view for supplies shopping
+  webview_flutter: ^4.10.0
+
+  # SVG logo support
+  flutter_svg: ^2.1.0
+
+  # Cached network images (for Firebase-hosted carousel banners)
+  cached_network_image: ^3.4.1
+
+  # Persist normal delivery order number counter (0001, 0002, ...)
+  shared_preferences: ^2.3.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -52,6 +64,8 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/images/order_supplies/
+    - assets/images/banner/
 
   # To add custom fonts to your application, uncomment the following lines:
   # fonts:

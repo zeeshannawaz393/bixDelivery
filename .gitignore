@@ -29,10 +29,13 @@
 # Android
 **/android/.gradle/
 **/android/local.properties
+**/android/key.properties
 **/android/**/GeneratedPluginRegistrant.java
 **/android/app/debug/
 **/android/app/profile/
 **/android/app/release/
+*.jks
+*.keystore
 
 # iOS
 **/ios/Pods/

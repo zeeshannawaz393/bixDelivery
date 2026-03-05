@@ -26,10 +26,12 @@ class OrderModel {
   // Status
   final String status;
   final String paymentStatus;
+  final String? cancelReason;
   
   // Timestamps
   final DateTime createdAt;
   final DateTime? acceptedAt;
+  final DateTime? cancelledAt;
   final DateTime? pickedUpAt;
   final DateTime? completedAt;
   final DateTime? paidAt;
@@ -52,8 +54,10 @@ class OrderModel {
     required this.driverEarnings,
     required this.status,
     required this.paymentStatus,
+    this.cancelReason,
     required this.createdAt,
     this.acceptedAt,
+    this.cancelledAt,
     this.pickedUpAt,
     this.completedAt,
     this.paidAt,
@@ -77,8 +81,10 @@ class OrderModel {
       'driverEarnings': driverEarnings,
       'status': status,
       'paymentStatus': paymentStatus,
+      'cancelReason': cancelReason,
       'createdAt': Timestamp.fromDate(createdAt),
       'acceptedAt': acceptedAt != null ? Timestamp.fromDate(acceptedAt!) : null,
+      'cancelledAt': cancelledAt != null ? Timestamp.fromDate(cancelledAt!) : null,
       'pickedUpAt': pickedUpAt != null ? Timestamp.fromDate(pickedUpAt!) : null,
       'completedAt': completedAt != null ? Timestamp.fromDate(completedAt!) : null,
       'paidAt': paidAt != null ? Timestamp.fromDate(paidAt!) : null,
@@ -144,12 +150,16 @@ class OrderModel {
       driverEarnings: safeDouble(map['driverEarnings'], 0.0),
       status: safeString(map['status'], 'pending'),
       paymentStatus: safeString(map['paymentStatus'], 'pending'),
+      cancelReason: map['cancelReason'] != null ? safeString(map['cancelReason']) : null,
       createdAt: safeDateTime(map['createdAt'], DateTime.now()),
-      acceptedAt: map['acceptedAt'] != null 
-          ? safeDateTime(map['acceptedAt']) 
+      acceptedAt: map['acceptedAt'] != null
+          ? safeDateTime(map['acceptedAt'])
           : null,
-      pickedUpAt: map['pickedUpAt'] != null 
-          ? safeDateTime(map['pickedUpAt']) 
+      cancelledAt: map['cancelledAt'] != null
+          ? safeDateTime(map['cancelledAt'])
+          : null,
+      pickedUpAt: map['pickedUpAt'] != null
+          ? safeDateTime(map['pickedUpAt'])
           : null,
       completedAt: map['completedAt'] != null 
           ? safeDateTime(map['completedAt']) 

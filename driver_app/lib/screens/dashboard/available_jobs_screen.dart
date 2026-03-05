@@ -225,7 +225,9 @@ class _JobsTab extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'ETA: ${order.estimatedTime} mins',
+                                order.orderNumber.startsWith('Supplies-')
+                                    ? 'Supplies delivery'
+                                    : 'ETA: ${order.estimatedTime} mins',
                                 style: const TextStyle(fontSize: 14),
                               ),
                               Text(

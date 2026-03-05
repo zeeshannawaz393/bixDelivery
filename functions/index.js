@@ -57,8 +57,8 @@ exports.onOrderStatusChange = functions
         notificationPromises.push(
           sendNotificationToUser(
             newData.customerId,
-            getStatusTitleForCustomer(newData.status),
-            getStatusBodyForCustomer(newData.status, newData.orderNumber || orderId),
+            getStatusTitleForCustomer(newData.status, newData.cancelReason),
+            getStatusBodyForCustomer(newData.status, newData.orderNumber || orderId, newData.cancelReason),
             {
               type: 'order_status_update',
               orderId: orderId,
@@ -84,8 +84,8 @@ exports.onOrderStatusChange = functions
         notificationPromises.push(
           sendNotificationToUser(
             newData.driverId,
-            getStatusTitleForDriver(newData.status),
-            getStatusBodyForDriver(newData.status, newData.orderNumber || orderId),
+            getStatusTitleForDriver(newData.status, newData.cancelReason),
+            getStatusBodyForDriver(newData.status, newData.orderNumber || orderId, newData.cancelReason),
             {
               type: 'order_status_update',
               orderId: orderId,
@@ -546,7 +546,7 @@ async function sendNotificationToAllOnlineDrivers(title, body, data = {}) {
 /**
  * Customer ke liye status messages
  */
-function getStatusTitleForCustomer(status) {
+function getStatusTitleForCustomer(status, cancelReason) {
   const titles = {
     'pending': 'Order Placed',
     'accepted': 'Order Accepted!',
@@ -554,11 +554,17 @@ function getStatusTitleForCustomer(status) {
     'on_the_way': 'On The Way',
     'arriving_soon': 'Arriving Soon',
     'completed': 'Order Delivered',
+    'cancelled': 'Order Cancelled',
   };
+  if (status === 'cancelled') {
+    if (cancelReason === 'expired_no_drivers') return 'No Drivers Available';
+    if (cancelReason === 'customer_cancelled') return 'Order Cancelled';
+    if (cancelReason === 'driver_cancelled') return 'Order Cancelled';
+  }
   return titles[status] || 'Order Status Updated';
 }
 
-function getStatusBodyForCustomer(status, orderNumber) {
+function getStatusBodyForCustomer(status, orderNumber, cancelReason) {
   const bodies = {
     'pending': 'Your order has been placed and is waiting for a driver.',
     'accepted': 'A driver has accepted your order and will pick it up soon.',
@@ -567,13 +573,28 @@ function getStatusBodyForCustomer(status, orderNumber) {
     'arriving_soon': 'Your order will arrive at the delivery location soon.',
     'completed': 'Your order has been successfully delivered!',
   };
+  if (status === 'cancelled') {
+    if (cancelReason === 'expired_no_drivers') {
+      return 'Your order was cancelled because no drivers were available.';
+    }
+    if (cancelReason === 'no_drivers_available') {
+      return 'Your order was cancelled because no drivers were available.';
+    }
+    if (cancelReason === 'customer_cancelled') {
+      return 'You cancelled this order.';
+    }
+    if (cancelReason === 'driver_cancelled') {
+      return 'The driver cancelled this order.';
+    }
+    return 'Your order has been cancelled.';
+  }
   return bodies[status] || `Your order #${orderNumber} status has been updated.`;
 }
 
 /**
  * Driver ke liye status messages
  */
-function getStatusTitleForDriver(status) {
+function getStatusTitleForDriver(status, cancelReason) {
   const titles = {
     'pending': 'New Order Available',
     'accepted': 'Order Accepted',
@@ -581,11 +602,17 @@ function getStatusTitleForDriver(status) {
     'on_the_way': 'On The Way',
     'arriving_soon': 'Arriving Soon',
     'completed': 'Order Completed',
+    'cancelled': 'Order Cancelled',
   };
+  if (status === 'cancelled') {
+    if (cancelReason === 'customer_cancelled') return 'Order Cancelled';
+    if (cancelReason === 'expired_no_drivers') return 'Order Cancelled';
+    if (cancelReason === 'driver_cancelled') return 'Order Cancelled';
+  }
   return titles[status] || 'Order Status Updated';
 }
 
-function getStatusBodyForDriver(status, orderNumber) {
+function getStatusBodyForDriver(status, orderNumber, cancelReason) {
   const bodies = {
     'pending': 'A new delivery request is available.',
     'accepted': 'You have accepted the order. Please proceed to pickup location.',
@@ -594,6 +621,13 @@ function getStatusBodyForDriver(status, orderNumber) {
     'arriving_soon': 'You are arriving at the delivery location soon.',
     'completed': 'Order has been completed successfully!',
   };
+  if (status === 'cancelled') {
+    if (cancelReason === 'customer_cancelled') return 'Customer cancelled the order.';
+    if (cancelReason === 'expired_no_drivers') return 'Order cancelled because no drivers were available.';
+    if (cancelReason === 'no_drivers_available') return 'Order cancelled because no drivers were available.';
+    if (cancelReason === 'driver_cancelled') return 'This order has been cancelled.';
+    return 'This order has been cancelled.';
+  }
   return bodies[status] || `Order #${orderNumber} status has been updated.`;
 }
 

@@ -18,7 +18,7 @@ class AuthService extends GetxService {
     required String email,
     required String password,
     required String fullName,
-    required String phoneNumber,
+    String? phoneNumber,
   }) async {
     try {
       print('🔐 [FIREBASE AUTH] Attempting to create user...');

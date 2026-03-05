@@ -104,4 +104,22 @@ exports.onOrderStatusChange = functions.firestore
 - `on_the_way` - Driver is on the way to delivery
 - `arriving_soon` - Driver is arriving soon
 - `completed` - Order is completed
+- `cancelled` - Order is cancelled
+
+## Deployment
+
+### Deploy Cloud Functions
+
+If you're using Firebase Cloud Functions, deploy with:
+
+```bash
+cd backend
+firebase deploy --only functions
+```
+
+Make sure you have:
+1. Firebase CLI installed: `npm install -g firebase-tools`
+2. Logged in: `firebase login`
+3. Initialized Firebase in the project: `firebase init functions`
+4. Installed dependencies: `npm install`
 

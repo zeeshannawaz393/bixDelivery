@@ -31,6 +31,20 @@ const statusMessages = {
       title: 'Order Delivered',
       body: 'Your order has been successfully delivered!',
     },
+    cancelled: {
+      title: 'Order Cancelled',
+      body: 'Your order has been cancelled due to no available drivers.',
+    },
+    // When driver cancels after accepting
+    driver_cancelled: {
+      title: 'Order Cancelled',
+      body: 'The driver cancelled this order.',
+    },
+    // When customer cancels
+    customer_cancelled: {
+      title: 'Order Cancelled',
+      body: 'You cancelled this order.',
+    },
   },
   
   // Driver notifications
@@ -58,6 +72,14 @@ const statusMessages = {
     completed: {
       title: 'Order Completed',
       body: 'Order has been completed successfully!',
+    },
+    cancelled: {
+      title: 'Order Cancelled',
+      body: 'This order has been cancelled.',
+    },
+    customer_cancelled: {
+      title: 'Order Cancelled',
+      body: 'Customer cancelled the order.',
     },
   },
 };

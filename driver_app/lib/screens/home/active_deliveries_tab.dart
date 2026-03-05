@@ -8,6 +8,115 @@ import '../../utils/constants.dart';
 class ActiveDeliveriesTab extends StatelessWidget {
   const ActiveDeliveriesTab({super.key});
 
+  Future<bool> _showCancelDeliverySheet(BuildContext context) async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final mq = MediaQuery.of(context);
+        final bottomInset = mq.viewPadding.bottom + mq.viewInsets.bottom;
+
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + bottomInset),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(100),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.cancel, color: Colors.red, size: 28),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Cancel this delivery?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'If you cancel, this order will be cancelled and the customer will be notified.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, height: 1.4, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.textPrimary,
+                          side: BorderSide(color: Colors.grey.withValues(alpha: 0.35)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Keep', style: TextStyle(fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Cancel delivery', style: TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+            ],
+          ),
+            ),
+          ),
+        );
+      },
+    );
+    return result == true;
+  }
+
   // Helper method to get customer name future (ensures fresh call each time)
   Future<String?> _getCustomerNameFuture(String customerId) async {
     print('🔍 [ACTIVE DELIVERIES] Fetching customer name for: $customerId');
@@ -411,21 +520,61 @@ class ActiveDeliveriesTab extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(height: 8),
+                                // Action buttons row
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      'View Details',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    const Icon(
-                                      Icons.arrow_forward_ios,
-                                      size: 12,
-                                      color: AppColors.textSecondary,
+                                    // Cancel button - only for accepted orders
+                                    if (order.status == AppConstants.statusAccepted)
+                                      Obx(() => SizedBox(
+                                        width: 80,
+                                        height: 32,
+                                        child: TextButton(
+                                          onPressed: _orderController.isLoading.value
+                                              ? null
+                                              : () async {
+                                            final shouldCancel = await _showCancelDeliverySheet(context);
+
+                                            if (shouldCancel == true && order.orderId != null) {
+                                              final success = await _orderController.cancelOrder(order.orderId!);
+                                              if (success && context.mounted) {
+                                                // Navigate back to jobs tab to see available orders
+                                                // This is handled by the controller automatically
+                                              }
+                                            }
+                                          },
+                                          style: TextButton.styleFrom(
+                                            backgroundColor: Colors.red.withValues(alpha: 0.1),
+                                            foregroundColor: Colors.red,
+                                            padding: EdgeInsets.zero,
+                                            textStyle: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          child: const Text('Cancel'),
+                                        ),
+                                      ))
+                                    else
+                                      const SizedBox(width: 80), // Placeholder for alignment
+
+                                    // View Details
+                                    Row(
+                                      children: [
+                                        Text(
+                                          'View Details',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Icon(
+                                          Icons.arrow_forward_ios,
+                                          size: 12,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),

@@ -195,6 +195,77 @@ class OrderService extends GetxService {
       return false;
     }
   }
+
+  // Cancel order by customer (only for pending or accepted orders)
+  Future<bool> cancelOrderByCustomer(String orderId, String customerId) async {
+    try {
+      print('🚫 [ORDER SERVICE] Customer cancelling order...');
+      print('   Order ID: $orderId');
+      print('   Customer ID: $customerId');
+
+      // First verify this customer owns the order
+      final doc = await _firestore
+          .collection(AppConstants.ordersCollection)
+          .doc(orderId)
+          .get();
+
+      if (!doc.exists) {
+        print('❌ [ORDER SERVICE] Order does not exist: $orderId');
+        return false;
+      }
+
+      final data = doc.data()!;
+      final orderCustomerId = data['customerId'] ?? '';
+      final currentStatus = data['status'] ?? '';
+
+      // Verify customer ownership
+      if (orderCustomerId != customerId) {
+        print('❌ [ORDER SERVICE] Customer mismatch - cannot cancel order');
+        print('   Order Customer ID: $orderCustomerId');
+        print('   Requesting Customer ID: $customerId');
+        return false;
+      }
+
+      // Only allow cancellation if order is pending or accepted (before pickup)
+      if (currentStatus != AppConstants.statusPending && 
+          currentStatus != AppConstants.statusAccepted) {
+        print('❌ [ORDER SERVICE] Order status does not allow cancellation');
+        print('   Current Status: $currentStatus');
+        print('   Allowed statuses: pending, accepted');
+        return false;
+      }
+
+      // Cancel the order
+      final updateData = {
+        'status': AppConstants.statusCancelled,
+        'cancelledAt': FieldValue.serverTimestamp(),
+        'cancelReason': 'customer_cancelled',
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      // If order was accepted, remove driver assignment
+      if (currentStatus == AppConstants.statusAccepted && data['driverId'] != null) {
+        updateData['driverId'] = FieldValue.delete();
+        updateData['acceptedAt'] = FieldValue.delete();
+      }
+
+      await _firestore
+          .collection(AppConstants.ordersCollection)
+          .doc(orderId)
+          .update(updateData);
+
+      print('✅ [ORDER SERVICE] Order cancelled successfully by customer!');
+      print('   Order ID: $orderId');
+      print('   Status changed to: ${AppConstants.statusCancelled}');
+      // Cloud Functions will automatically send notifications to driver if one was assigned
+      return true;
+    } catch (e) {
+      print('❌ [ORDER SERVICE] Error cancelling order: $e');
+      print('   Order ID: $orderId');
+      print('   Customer ID: $customerId');
+      return false;
+    }
+  }
 }
 
 

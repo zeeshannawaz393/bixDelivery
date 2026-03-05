@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'dart:async';
 import '../models/order_model.dart';
 import '../services/order_service.dart';
 import '../utils/constants.dart';
@@ -17,18 +18,29 @@ class OrderController extends GetxController {
   final Rx<OrderModel?> currentOrder = Rx<OrderModel?>(null);
   final RxBool isLoading = false.obs;
   final RxSet<String> acceptingOrderIds = <String>{}.obs;
+  final RxSet<String> decliningOrderIds = <String>{}.obs;
 
   StreamSubscription<List<OrderModel>>? _pendingOrdersSubscription;
   StreamSubscription<List<OrderModel>>? _completedOrdersSubscription;
   StreamSubscription<OrderModel?>? _orderSubscription;
+  Timer? _expiredOrdersCleanupTimer;
 
-  @override
-  void onInit() {
-    super.onInit();
-    print('🚀 [ORDER CONTROLLER] Initializing...');
-    
-    // Listen to pending orders stream (real-time updates)
-    _pendingOrdersSubscription = _orderService.getPendingOrders().listen(
+  // Update pending orders subscription with current driver ID
+  void _updatePendingOrdersSubscription() {
+    _pendingOrdersSubscription?.cancel();
+    final authController = Get.find<AuthController>();
+    final currentDriverId = authController.user.value?.uid;
+    print('🔄 [ORDER CONTROLLER] Updating pending orders subscription...');
+    print('   Current Driver ID: $currentDriverId');
+
+    // If driver is not logged in, do not listen to pending orders.
+    // This prevents showing "all pending orders" while signed out.
+    if (currentDriverId == null || currentDriverId.isEmpty) {
+      pendingOrders.value = [];
+      return;
+    }
+
+    _pendingOrdersSubscription = _orderService.getPendingOrders(currentDriverId).listen(
       (ordersList) {
         print('📦 [ORDER CONTROLLER] Pending orders updated: ${ordersList.length}');
         if (ordersList.isNotEmpty) {
@@ -42,6 +54,32 @@ class OrderController extends GetxController {
       },
       cancelOnError: false, // Keep listening even on error
     );
+  }
+
+  // Start periodic cleanup of expired orders
+  void _startExpiredOrdersCleanup() {
+    print('🧹 [ORDER CONTROLLER] Starting expired orders cleanup timer...');
+    // Run every 5 minutes
+    _expiredOrdersCleanupTimer = Timer.periodic(const Duration(minutes: 5), (timer) async {
+      print('🧹 [ORDER CONTROLLER] Running expired orders cleanup...');
+      try {
+        final cancelledCount = await _orderService.cancelExpiredOrders(maxAgeMinutes: 30);
+        if (cancelledCount > 0) {
+          print('🧹 [ORDER CONTROLLER] Cleaned up $cancelledCount expired orders');
+        }
+      } catch (e) {
+        print('❌ [ORDER CONTROLLER] Error during expired orders cleanup: $e');
+      }
+    });
+  }
+
+  @override
+  void onInit() {
+    super.onInit();
+    print('🚀 [ORDER CONTROLLER] Initializing...');
+    
+    // Set up initial pending orders subscription (will be updated when auth state changes)
+    _updatePendingOrdersSubscription();
 
     // Listen to auth state changes to load active and completed orders
     final authController = Get.find<AuthController>();
@@ -50,12 +88,15 @@ class OrderController extends GetxController {
       if (user != null) {
         print('👤 [ORDER CONTROLLER] User authenticated, loading orders...');
         print('   User ID: ${user.uid}');
+        _updatePendingOrdersSubscription(); // Update pending orders with driver ID filter
         _loadActiveOrders(user.uid);
         _loadCompletedOrders(user.uid);
       } else {
         print('👤 [ORDER CONTROLLER] User signed out, clearing orders');
         activeOrders.value = [];
         completedOrders.value = [];
+        pendingOrders.value = [];
+        _pendingOrdersSubscription?.cancel();
       }
     });
 
@@ -69,6 +110,9 @@ class OrderController extends GetxController {
     } else {
       print('👤 [ORDER CONTROLLER] Driver not authenticated yet, will load orders on login');
     }
+
+    // Clean up expired orders periodically (every 5 minutes)
+    _startExpiredOrdersCleanup();
   }
 
   // Load active orders for driver (real-time updates)
@@ -159,15 +203,15 @@ class OrderController extends GetxController {
     try {
       print('🎯 [ORDER CONTROLLER] Driver attempting to accept order...');
       print('   Order ID: $orderId');
-      
+
       isLoading.value = true;
       acceptingOrderIds.add(orderId);
 
       final authController = Get.find<AuthController>();
       final driverId = authController.user.value?.uid ?? '';
-      
+
       print('   Driver ID: $driverId');
-      
+
       if (driverId.isEmpty) {
         print('❌ [ORDER CONTROLLER] Cannot accept order - driver ID is empty');
         acceptingOrderIds.remove(orderId);
@@ -178,7 +222,7 @@ class OrderController extends GetxController {
       final success = await _orderService.acceptOrder(orderId, driverId);
 
       acceptingOrderIds.remove(orderId);
-      
+
       if (success) {
         print('✅ [ORDER CONTROLLER] Order accepted successfully!');
         print('   Order ID: $orderId');
@@ -203,6 +247,109 @@ class OrderController extends GetxController {
       isLoading.value = false;
       if (Get.context != null) {
         CustomToast.error(Get.context!, 'Failed to accept order: ${e.toString()}');
+      }
+      return false;
+    }
+  }
+
+  // Cancel order (only for accepted orders)
+  Future<bool> cancelOrder(String orderId) async {
+    try {
+      print('🚫 [ORDER CONTROLLER] Driver attempting to cancel order...');
+      print('   Order ID: $orderId');
+
+      isLoading.value = true;
+
+      final authController = Get.find<AuthController>();
+      final driverId = authController.user.value?.uid ?? '';
+
+      print('   Driver ID: $driverId');
+
+      if (driverId.isEmpty) {
+        print('❌ [ORDER CONTROLLER] Cannot cancel order - driver ID is empty');
+        isLoading.value = false;
+        return false;
+      }
+
+      final success = await _orderService.cancelOrder(orderId, driverId);
+
+      if (success) {
+        print('✅ [ORDER CONTROLLER] Order cancelled successfully!');
+        print('   Order ID: $orderId');
+        print('   Driver ID: $driverId');
+        print('   Reloading active orders...');
+        isLoading.value = false;
+        // Reload active orders (order should be removed from active list)
+        _loadActiveOrders(driverId);
+        if (Get.context != null) {
+          CustomToast.success(Get.context!, 'Order cancelled successfully', duration: const Duration(seconds: 2));
+        }
+        return true;
+      } else {
+        print('❌ [ORDER CONTROLLER] Order cancellation failed');
+        print('   Order ID: $orderId');
+        print('   Driver ID: $driverId');
+      }
+
+      isLoading.value = false;
+      return false;
+    } catch (e) {
+      print('❌ [ORDER CONTROLLER] Exception cancelling order: $e');
+      print('   Order ID: $orderId');
+      isLoading.value = false;
+      if (Get.context != null) {
+        CustomToast.error(Get.context!, 'Failed to cancel order: ${e.toString()}');
+      }
+      return false;
+    }
+  }
+
+  // Decline order (for pending orders - indicate driver is not available)
+  Future<bool> declineOrder(String orderId) async {
+    try {
+      print('👎 [ORDER CONTROLLER] Driver declining order...');
+      print('   Order ID: $orderId');
+
+      isLoading.value = true;
+      decliningOrderIds.add(orderId);
+
+      final authController = Get.find<AuthController>();
+      final driverId = authController.user.value?.uid ?? '';
+
+      print('   Driver ID: $driverId');
+
+      if (driverId.isEmpty) {
+        print('❌ [ORDER CONTROLLER] Cannot decline order - driver ID is empty');
+        decliningOrderIds.remove(orderId);
+        isLoading.value = false;
+        return false;
+      }
+
+      final success = await _orderService.declineOrder(orderId, driverId);
+
+      decliningOrderIds.remove(orderId);
+
+      if (success) {
+        print('✅ [ORDER CONTROLLER] Order declined successfully!');
+        print('   Order ID: $orderId');
+        print('   Driver ID: $driverId');
+        isLoading.value = false;
+        return true;
+      } else {
+        print('❌ [ORDER CONTROLLER] Order decline failed');
+        print('   Order ID: $orderId');
+        print('   Driver ID: $driverId');
+      }
+
+      isLoading.value = false;
+      return false;
+    } catch (e) {
+      print('❌ [ORDER CONTROLLER] Exception declining order: $e');
+      print('   Order ID: $orderId');
+      decliningOrderIds.remove(orderId);
+      isLoading.value = false;
+      if (Get.context != null) {
+        CustomToast.error(Get.context!, 'Failed to decline order: ${e.toString()}');
       }
       return false;
     }
@@ -393,6 +540,7 @@ class OrderController extends GetxController {
     _pendingOrdersSubscription?.cancel();
     _completedOrdersSubscription?.cancel();
     _orderSubscription?.cancel();
+    _expiredOrdersCleanupTimer?.cancel();
     super.onClose();
   }
 }

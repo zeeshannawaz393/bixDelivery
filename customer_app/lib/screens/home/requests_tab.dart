@@ -33,6 +33,8 @@ class _RequestsTabState extends State<RequestsTab> {
         return AppColors.info;
       case AppConstants.statusCompleted:
         return AppColors.success;
+      case AppConstants.statusCancelled:
+        return Colors.red;
       default:
         return AppColors.textSecondary;
     }
@@ -52,6 +54,8 @@ class _RequestsTabState extends State<RequestsTab> {
         return 'Arriving Soon';
       case AppConstants.statusCompleted:
         return 'Completed';
+      case AppConstants.statusCancelled:
+        return 'Cancelled';
       default:
         return status;
     }
@@ -327,7 +331,9 @@ class _RequestsTabState extends State<RequestsTab> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '${updatedOrder.estimatedTime} mins',
+                          updatedOrder.orderNumber.startsWith('Supplies-')
+                              ? '—'
+                              : '${updatedOrder.estimatedTime} mins',
                           style: TextStyle(
                             fontSize: 13,
                             color: AppColors.textSecondary,
@@ -341,7 +347,9 @@ class _RequestsTabState extends State<RequestsTab> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '${updatedOrder.distance.toStringAsFixed(1)} miles',
+                          updatedOrder.orderNumber.startsWith('Supplies-')
+                              ? 'Supplies delivery'
+                              : '${updatedOrder.distance.toStringAsFixed(1)} miles',
                           style: TextStyle(
                             fontSize: 13,
                             color: AppColors.textSecondary,

@@ -120,7 +120,9 @@ class DeliveryCompletedScreen extends StatelessWidget {
                               ],
                             ),
                             Text(
-                              '${order.distance.toStringAsFixed(1)} miles',
+                              order.orderNumber.startsWith('Supplies-')
+                                  ? 'Supplies delivery'
+                                  : '${order.distance.toStringAsFixed(1)} miles',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
