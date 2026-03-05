@@ -90,6 +90,7 @@ yarn-error.log*
 
 # Firebase service account credentials (never commit)
 functions/couriermvp-firebase-adminsdk-fbsvc-809ec4184d.json
+backend/couriermvp-firebase-adminsdk-fbsvc-809ec4184d.json
 
 # Build artifacts
 dist/
