@@ -75,3 +75,6 @@ Thumbs.db
 *.flv
 *.mov
 *.wmv
+
+# Local secrets (do not commit real API keys)
+lib/config/secrets.dart

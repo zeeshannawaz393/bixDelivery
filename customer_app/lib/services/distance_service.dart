@@ -3,11 +3,14 @@ import 'dart:math' as math;
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import '../utils/constants.dart';
+import '../config/secrets.dart';
 
 class DistanceService extends GetxService {
-  // Google Distance Matrix API key
-  static const String apiKey = 'REMOVED_GOOGLE_API_KEY';
+  // Google Distance Matrix API base URL
   static const String baseUrl = 'https://maps.googleapis.com/maps/api/distancematrix/json';
+
+  // Read API key from non-committed secrets file
+  static String get apiKey => Secrets.googleDistanceMatrixApiKey;
 
   // Calculate distance using Haversine formula (straight-line distance in miles)
   double _calculateHaversineDistance({

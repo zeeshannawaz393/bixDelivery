@@ -1,11 +1,14 @@
 import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import '../config/secrets.dart';
 
 class PlacesService extends GetxService {
-  // Google Places API key
-  static const String apiKey = 'REMOVED_GOOGLE_API_KEY';
+  // Google Places API base URL
   static const String baseUrl = 'https://maps.googleapis.com/maps/api/place';
+
+  // Read API key from non-committed secrets file
+  static String get apiKey => Secrets.googlePlacesApiKey;
 
   // Search places (Autocomplete)
   Future<List<Map<String, dynamic>>> searchPlaces(String query) async {
